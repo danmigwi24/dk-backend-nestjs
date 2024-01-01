@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/user.entity';
 import { JwtModule } from '@nestjs/jwt';
+import { MulterModule } from '@nestjs/platform-express';
 
 @Module({
   imports: [
@@ -19,13 +20,18 @@ import { JwtModule } from '@nestjs/jwt';
     }),
     TypeOrmModule.forFeature([User]),
     JwtModule.register({
-      secret:"qwertyui",
-      signOptions:{
-expiresIn:"1d"
+      secret: "qwertyui",
+      signOptions: {
+        expiresIn: "1d"
       }
-    })
+    }),
+    MulterModule.register(
+      {
+        dest:'./uploads'
+      }
+    )
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
