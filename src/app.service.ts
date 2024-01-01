@@ -25,6 +25,10 @@ export class AppService {
   async findOneBy(phonenumber: string): Promise<User | null> {
     return this.userRepository.findOneBy({ phonenumber });
   }
+   async findById(id: number): Promise<User | null> {
+    return this.userRepository.findOneBy({ id });
+  }
+
 
 
   async getAllUsers(): Promise<User[]> {

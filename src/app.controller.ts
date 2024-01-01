@@ -1,11 +1,17 @@
-import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { AppService } from './app.service';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
+import { Response } from 'express';
+import { Request } from 'express';
 
 
 @Controller("api")
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private jwtService:JwtService
+    ) {}
 //
   @Get()
   getHello(): string {
@@ -26,13 +32,16 @@ export class AppController {
       //console.log(`PASSWORD: ${password}`);
       console.log(`HASHED PASSWORD: ${hashedPassword}`);
 
-      const requestBody = this.appService.register(
+      const requestBody = await this.appService.register(
        {
           name,
           phonenumber,
           email,
           password:hashedPassword
         })
+
+        delete requestBody.password
+
       return requestBody
   }
 
@@ -41,6 +50,7 @@ export class AppController {
   async login(
     @Body('phonenumber') phonenumber:string,
     @Body('password') password:string, 
+    @Res({passthrough:true}) response:Response
   ){
 
    // const user = await this.appService.login({phonenumber})
@@ -52,11 +62,45 @@ export class AppController {
       console.log(`USER: ${JSON.stringify(user,null,2)}`);
       if (isMatch){
         delete user.password;
-        return user
+
+        const jwt = await this.jwtService.signAsync({id:user.id, phonenumber:user.phonenumber})
+        response.cookie('jwt',jwt,{httpOnly:true})
+        //user.accessToken = jwt;
+        return {status:200,accessToken:jwt,data:user}
       }else{
         throw new BadRequestException("Invalid credentials") 
       }
   }
+  //
+  @Post('users')
+  async allUsers(@Req() request:Request){
+    try {
+      const cookie = request.cookies['jwt']
+      const data = await this.jwtService.verifyAsync(cookie)
+      
+    if (!data){
+      throw new UnauthorizedException()
+    }else{
+      const users = await this.appService.getAllUsers()
+      const user =  await this.appService.findOneBy(data['phonenumber'])
+      const {password,...result} = user
+      return result
+    }
+     
+    } catch (error) {
+      throw new UnauthorizedException()
+    }
+   
+  }
+//
+  @Post('logout')
+  async logout(
+    @Res({passthrough:true}) response:Response
+  ){
+    response.clearCookie('jwt')
+    return {status:200,message:"Logged out"}
+  }
+
 //
   @Post('getallusers')
   async getAllUsers(){
@@ -66,9 +110,9 @@ export class AppController {
 //
   @Post('findById')
   async findById(
-    @Body('phonenumber') phonenumber:string,
+    @Body('id') id:number,
   ){
-    const users = await this.appService.findOneBy(phonenumber)
+    const users = await this.appService.findById(id)
     return users
   }
 
